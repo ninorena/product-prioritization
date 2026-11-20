@@ -6,6 +6,8 @@ import { NEXT_ACTION, STEP_LABEL, STEPS } from './types';
 import { Brainstorm } from './Brainstorm';
 import { BoardStep } from './BoardStep';
 import { Results } from './Results';
+import { OffBoard } from './OffBoard';
+import { WriteNow } from './WriteNow';
 
 export function WorkspaceView({ id, session }: { id: string; session: Session }) {
   const [ws, setWs] = useState<Workspace | null | undefined>(undefined);
@@ -13,6 +15,10 @@ export function WorkspaceView({ id, session }: { id: string; session: Session })
   const [me, setMe] = useState<string | null>(null);
   const [round, setRound] = useState<Round | null>(null);
   const [error, setError] = useState('');
+  // Goes up when a person changes the status or topic of a note, so that
+  // the result and the list of notes off the board load again.
+  const [notesVersion, setNotesVersion] = useState(0);
+  const notesChanged = useCallback(() => setNotesVersion((v) => v + 1), []);
 
   const load = useCallback(async () => {
     const [w, m, mine, r] = await Promise.all([
@@ -105,7 +111,11 @@ export function WorkspaceView({ id, session }: { id: string; session: Session })
       {round && ['placement', 'compare', 'vote'].includes(round.step) && (
         <BoardStep key={round.id + round.step} round={round} me={me} members={members} />
       )}
-      {round?.step === 'closed' && <Results key={round.id} round={round} members={members} />}
+      {round?.step === 'closed' && (
+        <Results key={round.id} round={round} members={members} version={notesVersion} onChange={notesChanged} />
+      )}
+      {round?.step !== 'brainstorm' && <WriteNow key={`write-${round?.id ?? 'none'}`} workspaceId={id} me={me} />}
+      <OffBoard workspaceId={id} version={notesVersion} onChange={notesChanged} />
     </main>
   );
 }

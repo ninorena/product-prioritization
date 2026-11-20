@@ -18,13 +18,17 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
 
   const load = useCallback(async () => {
     const g = ++gen.current;
-    const [r, n] = await Promise.all([
+    const [r, n, earlier] = await Promise.all([
       supabase.from('responses').select('*').eq('workspace_id', workspaceId).eq('member_id', me).order('created_at'),
       supabase.from('notes').select('*').eq('round_id', round.id).eq('member_id', me).order('created_at'),
+      supabase.from('notes').select('response_id').eq('workspace_id', workspaceId).eq('member_id', me)
+        .neq('round_id', round.id).not('response_id', 'is', null),
     ]);
     if (g !== gen.current) return;
     setLoaded(true);
-    setResponses(r.data ?? []);
+    // A response that became a note in an earlier round is done.
+    const done = new Set((earlier.data ?? []).map((x) => x.response_id as string));
+    setResponses((r.data ?? []).filter((x) => !done.has(x.id)));
     setNotes(n.data ?? []);
   }, [workspaceId, round.id, me]);
 
