@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 import type { Member, Note, Placement, Round, Vote } from './types';
 import { offLine, quadrant } from './quadrant';
@@ -13,12 +13,20 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
   const [viewing, setViewing] = useState<string>(me);
   const [error, setError] = useState('');
 
+  // Each load and each change takes a number. A load applies its result
+  // only if nothing started after it, so a slow load cannot undo a change.
+  const gen = useRef(0);
+  const [loaded, setLoaded] = useState(false);
+
   const load = useCallback(async () => {
+    const g = ++gen.current;
     const [n, p, v] = await Promise.all([
       supabase.from('notes').select('*').eq('round_id', round.id).order('created_at'),
       supabase.from('placements').select('*').eq('round_id', round.id),
       supabase.from('votes').select('*').eq('round_id', round.id),
     ]);
+    if (g !== gen.current) return;
+    setLoaded(true);
     setNotes(n.data ?? []);
     setPlacements(p.data ?? []);
     setVotes(v.data ?? []);
@@ -36,15 +44,21 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
 
   async function place(x: number, y: number) {
     if (!selected || !canPlace) return;
+    gen.current++;
     setError('');
     const row = { note_id: selected, member_id: me, round_id: round.id, x: offLine(x), y: offLine(y) };
-    const { error } = await supabase.from('placements').upsert(row, { onConflict: 'note_id,member_id' });
-    if (error) return setError(error.message);
+    // Show the move at once, so the next click works on the new board.
+    setPlacements((cur) => [...cur.filter((p) => !(p.note_id === row.note_id && p.member_id === me)), row]);
     setSelected(null);
-    load();
+    const { error } = await supabase.from('placements').upsert(row, { onConflict: 'note_id,member_id' });
+    if (error) {
+      setError(error.message);
+      load();
+    }
   }
 
   async function toggleVote(noteId: string) {
+    gen.current++;
     setError('');
     const has = myVotes.some((v) => v.note_id === noteId);
     const { error } = has
@@ -76,7 +90,8 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
         </label>
       )}
 
-      <div className="board-layout">
+      {!loaded && <p>Loading…</p>}
+      {loaded && <div className="board-layout">
         <Board
           notes={notes}
           placements={shown}
@@ -104,7 +119,7 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
             </ul>
           </div>
         )}
-      </div>
+      </div>}
       {error && <p className="error">{error}</p>}
 
       {(round.step === 'compare' || round.step === 'vote') && (

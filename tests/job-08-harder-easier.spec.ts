@@ -22,6 +22,7 @@ test('job 8: the horizontal axis goes from Harder to Easier, and no note sits on
   await expect(ana.getByTestId('placed-note').filter({ hasText: 'Hard invented' })).toHaveAttribute('data-quadrant', 'More important, Harder');
   await expect(ana.getByTestId('placed-note').filter({ hasText: 'Easy invented' })).toHaveAttribute('data-quadrant', 'More important, Easier');
 
+  await expect.poll(async () => (await s.members[0].client.from('placements').select('x').eq('member_id', s.members[0].id)).data?.length).toBe(3);
   const rows = await call(s.members[0].client.from('placements').select('x,y').eq('member_id', s.members[0].id)) as { x: number; y: number }[];
   expect(rows).toHaveLength(3);
   for (const r of rows) {

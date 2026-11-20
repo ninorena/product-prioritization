@@ -24,6 +24,11 @@ test('job 3: one response gives two notes, and another is marked "question not k
   await second.getByLabel('Question not known').check();
   await expect(second.getByLabel('Question', { exact: true })).toHaveCount(0);
 
+  // Wait for the save before the reload.
+  await expect.poll(async () => {
+    const { data } = await s.members[0].client.from('responses').select('question_unknown').eq('question_unknown', true);
+    return data?.length;
+  }).toBe(1);
   await page.reload();
   await expect(page.getByTestId('response').nth(1).getByLabel('Question not known')).toBeChecked();
   await expect(page.getByTestId('my-note')).toHaveCount(2);

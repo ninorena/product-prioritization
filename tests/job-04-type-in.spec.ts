@@ -5,9 +5,10 @@ test('job 4: a member types in responses from a notepad, with no prompt', async 
   const s = await seed(['Ana Test']);
   const page = await memberPage(browser, s.members[0].token);
   const lines = ['Notepad line one about the invented app', 'Notepad line two about delivery', 'Notepad line three about price'];
-  for (const line of lines) {
+  for (const [i, line] of lines.entries()) {
     await page.getByLabel('Response').fill(line);
     await page.getByRole('button', { name: 'Save the response' }).click();
+    await expect(page.getByTestId('response')).toHaveCount(i + 1);
   }
   await page.reload();
   const responses = page.getByTestId('response');

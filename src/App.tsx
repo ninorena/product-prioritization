@@ -83,7 +83,7 @@ function SignIn() {
 }
 
 function Join({ token }: { token: string }) {
-  const [state, setState] = useState<'working' | 'refused' | 'lead'>('working');
+  const [state, setState] = useState<'working' | 'refused' | 'lead' | 'busy'>('working');
   const started = useRef(false);
 
   useEffect(() => {
@@ -98,7 +98,8 @@ function Join({ token }: { token: string }) {
       if (!data.session) {
         const res = await supabase.auth.signInAnonymously();
         if (res.error) {
-          setState('refused');
+          // Supabase limits sign-ins from one address. The link may still be good.
+          setState('busy');
           return;
         }
       }
@@ -116,6 +117,13 @@ function Join({ token }: { token: string }) {
     return (
       <main>
         <p>You are signed in as the lead. Open this member link in a private window.</p>
+      </main>
+    );
+  if (state === 'busy')
+    return (
+      <main data-testid="sign-in-busy">
+        <h1>Sign-in is busy</h1>
+        <p>Too many people signed in from this network in the last hour. Try the same link again later.</p>
       </main>
     );
   if (state === 'refused')

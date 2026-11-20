@@ -1,6 +1,6 @@
 // Test helpers. Every text here is invented. Real client text never goes
 // into a test.
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { Browser, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
@@ -29,12 +29,18 @@ function ensureLead() {
   return leadReady;
 }
 
-export async function leadClient() {
-  await ensureLead();
-  const c = newClient();
-  const { data, error } = await c.auth.signInWithPassword({ email: TEST_LEAD, password: TEST_LEAD_PASSWORD });
-  if (error) throw error;
-  return { client: c, session: data.session! };
+// One sign-in for each test worker: Supabase limits sign-ins to 150 in
+// 5 minutes from one address.
+let leadSignIn: Promise<{ client: SupabaseClient; session: Session }> | null = null;
+export function leadClient() {
+  leadSignIn ??= (async () => {
+    await ensureLead();
+    const c = newClient();
+    const { data, error } = await c.auth.signInWithPassword({ email: TEST_LEAD, password: TEST_LEAD_PASSWORD });
+    if (error) throw error;
+    return { client: c, session: data.session! };
+  })();
+  return leadSignIn;
 }
 
 // A member's session, as a second device would get it: sign in as an
