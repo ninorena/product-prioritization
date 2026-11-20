@@ -135,7 +135,6 @@ await as('a', `select public.set_note_topic($1,'')`, [na]);
 expect('an empty topic clears it', (await as('b', 'select topic from public.notes where id=$1', [na]))[0].topic === null);
 await expectError('topic over 60 characters refused', () => as('a', `select public.set_note_topic($1,$2)`, [na, 'x'.repeat(61)]));
 await expectError('direct update of status refused', () => as('a', `update public.notes set status='closed' where id=$1`, [na]));
-await expectError('direct insert with a status refused', () => as('a', `insert into public.notes(workspace_id, round_id, member_id, body, status) values ($1,$2,$3,'x','icebox')`, [ws, round, ma.member_id]));
 
 // Cancel A's link: both of A's sessions lose access.
 await as('lead', `select public.cancel_member_link($1)`, [ma.member_id]);
@@ -154,6 +153,9 @@ await expectError('sixth member refused', () => as('lead', `select * from public
 
 // Votes limit.
 const r2 = (await as('lead', `select public.start_round($1) as id`, [ws]))[0].id;
+await expectError('direct insert with a status refused in the brainstorm', () => as('b', `insert into public.notes(workspace_id, round_id, member_id, body, status) values ($1,$2,$3,'x','icebox')`, [ws, r2, mb.member_id]));
+await expectError('direct insert with a topic refused in the brainstorm', () => as('b', `insert into public.notes(workspace_id, round_id, member_id, body, topic) values ($1,$2,$3,'x','t')`, [ws, r2, mb.member_id]));
+expect('a plain insert works in the brainstorm', (await as('b', `insert into public.notes(workspace_id, round_id, member_id, body) values ($1,$2,$3,'plain') returning id`, [ws, r2, mb.member_id])).length === 1);
 const ids = [];
 for (let i = 0; i < 4; i++) ids.push((await as('b', `insert into public.notes(workspace_id, round_id, member_id, body) values ($1,$2,$3,'q${i}') returning id`, [ws, r2, mb.member_id]))[0].id);
 for (const st of ['brainstorm', 'placement', 'compare']) await as('lead', `select public.advance_round($1,$2)`, [r2, st]);

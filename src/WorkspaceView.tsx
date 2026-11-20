@@ -115,7 +115,7 @@ export function WorkspaceView({ id, session }: { id: string; session: Session })
         <Results key={round.id} round={round} members={members} version={notesVersion} onChange={notesChanged} />
       )}
       {round?.step !== 'brainstorm' && <WriteNow key={`write-${round?.id ?? 'none'}`} workspaceId={id} me={me} />}
-      <OffBoard workspaceId={id} version={notesVersion} onChange={notesChanged} />
+      <OffBoard workspaceId={id} latestRound={round?.step === 'closed' ? round.id : null} version={notesVersion} onChange={notesChanged} />
     </main>
   );
 }

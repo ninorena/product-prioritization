@@ -8,7 +8,7 @@ const ORDER: NoteStatus[] = ['in_progress', 'icebox', 'closed'];
 
 // The notes that people moved off the board, from every round in the
 // workspace, so the list stays in use for the full project (job 10).
-export function OffBoard({ workspaceId, version, onChange }: { workspaceId: string; version: number; onChange: () => void }) {
+export function OffBoard({ workspaceId, latestRound, version, onChange }: { workspaceId: string; latestRound: string | null; version: number; onChange: () => void }) {
   const [notes, setNotes] = useState<Note[]>([]);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function OffBoard({ workspaceId, version, onChange }: { workspaceId: stri
               <li key={n.id} data-testid="off-board-note" data-status={n.status}>
                 {n.body}
                 {n.topic && <small className="topic"> {n.topic}</small>}{' '}
-                <StatusSelect note={n} onChange={onChange} />
+                <StatusSelect note={n} onChange={onChange} allowBoard={n.round_id === latestRound} />
               </li>
             ))}
           </ul>

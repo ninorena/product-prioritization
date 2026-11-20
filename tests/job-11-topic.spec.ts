@@ -25,4 +25,16 @@ test('job 11: a person gives notes one topic, and the result shows the votes for
 
   const ben = await memberPage(browser, s.members[1].token);
   await expect(ben.locator('[data-testid="topic-row"][data-topic="Invented pricing"]')).toHaveAttribute('data-votes', '2');
+
+  // A note off the board still counts for its topic.
+  await ana.getByTestId('result-row').filter({ hasText: 'price question two' }).getByLabel('Status').selectOption('icebox');
+  await expect(topic).toHaveAttribute('data-votes', '2');
+
+  // An empty topic removes the label, and the topic total goes down.
+  const one = ana.getByTestId('result-row').filter({ hasText: 'price question one' });
+  await one.getByLabel('Topic').fill('');
+  await one.getByRole('button', { name: 'Save the topic' }).click();
+  await expect(one.getByTestId('topic-saved')).toHaveCount(0);
+  await expect(topic).toHaveAttribute('data-votes', '1');
+  await expect(topic).toHaveAttribute('data-notes', '1');
 });

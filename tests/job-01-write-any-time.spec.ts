@@ -31,6 +31,8 @@ test('job 1: a person writes a question down after a round, and the next brainst
     .select()) as { id: string }[];
   expect(n).toHaveLength(1);
   await addNote(s, 0, 'Invented note with no response');
+  const unknown = await addResponse(s, 0, 'Invented response with no known question');
+  await call(s.members[0].client.from('responses').update({ question_unknown: true }).eq('id', unknown).select());
   await advance(s, 4); // closed
 
   const ana = await memberPage(browser, s.members[0].token);

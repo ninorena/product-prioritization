@@ -10,14 +10,14 @@ export function WriteNow({ workspaceId, me }: { workspaceId: string; me: string 
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // The responses that no note uses yet.
+  // The responses that no note uses yet, and not marked "question not known".
   const load = useCallback(async () => {
     const [r, n] = await Promise.all([
       supabase.from('responses').select('*').eq('workspace_id', workspaceId).eq('member_id', me).order('created_at'),
       supabase.from('notes').select('response_id').eq('workspace_id', workspaceId).eq('member_id', me).not('response_id', 'is', null),
     ]);
     const used = new Set((n.data ?? []).map((x) => x.response_id as string));
-    setSaved((r.data ?? []).filter((x) => !used.has(x.id)));
+    setSaved((r.data ?? []).filter((x) => !used.has(x.id) && !x.question_unknown));
   }, [workspaceId, me]);
 
   useEffect(() => {

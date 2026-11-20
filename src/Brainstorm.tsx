@@ -26,9 +26,11 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
     ]);
     if (g !== gen.current) return;
     setLoaded(true);
-    // A response that became a note in an earlier round is done.
+    // A response is done if it became a note in an earlier round, or if the
+    // person marked it "question not known" before this round started.
     const done = new Set((earlier.data ?? []).map((x) => x.response_id as string));
-    setResponses((r.data ?? []).filter((x) => !done.has(x.id)));
+    setResponses((r.data ?? []).filter((x) =>
+      !done.has(x.id) && !(x.question_unknown && x.created_at < round.created_at)));
     setNotes(n.data ?? []);
   }, [workspaceId, round.id, me]);
 

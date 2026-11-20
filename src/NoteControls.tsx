@@ -6,7 +6,9 @@ import { STATUS_LABEL } from './types';
 // After a round, any person can move a note off the board (job 10) and give
 // it a topic (job 11). Both go through database functions.
 
-export function StatusSelect({ note, onChange }: { note: Note; onChange: () => void }) {
+// allowBoard is false for a note from an earlier round: its board is not
+// shown any more, so "On the board" would hide the note from every screen.
+export function StatusSelect({ note, onChange, allowBoard = true }: { note: Note; onChange: () => void; allowBoard?: boolean }) {
   const [error, setError] = useState('');
   async function set(value: string) {
     setError('');
@@ -22,7 +24,7 @@ export function StatusSelect({ note, onChange }: { note: Note; onChange: () => v
       <label className="inline">
         Status{' '}
         <select value={note.status ?? 'board'} onChange={(e) => set(e.target.value)}>
-          {Object.entries(STATUS_LABEL).map(([v, label]) => (
+          {Object.entries(STATUS_LABEL).filter(([v]) => allowBoard || v !== 'board').map(([v, label]) => (
             <option key={v} value={v}>{label}</option>
           ))}
         </select>
