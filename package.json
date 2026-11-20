@@ -11,7 +11,8 @@
     "keys:test": "node scripts/sb.mjs keys test",
     "migrate:test": "node scripts/sb.mjs migrate test",
     "migrate:prod": "node scripts/sb.mjs migrate prod",
-    "test": "node scripts/sb.mjs keys test && playwright test"
+    "test": "node tests/db/rls-check.mjs && node scripts/sb.mjs keys test && playwright test",
+    "test:db": "node tests/db/rls-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.119.2",
@@ -19,6 +20,7 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.17",
     "@playwright/test": "1.63.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
