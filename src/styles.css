@@ -31,3 +31,23 @@ th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vert
 .note.selected { outline: 3px solid var(--accent); }
 .tray ul { list-style: none; padding: 0; }
 .tray li { margin: 6px 0; }
+label.inline { display: inline; margin: 0; }
+label.inline select, label.inline input { display: inline; width: auto; max-width: 220px; }
+.inline-form { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.topic { background: var(--line); border-radius: 4px; padding: 0 6px; margin-right: 6px; }
+.result-boards { display: flex; gap: 24px; flex-wrap: wrap; }
+.result-board .board { width: min(420px, 80vw); }
+.print-only { display: none; }
+
+/* Job 12: the browser's print dialog saves the result as a PDF. */
+@media print {
+  :root { --ink: #000; --muted: #444; --line: #999; --paper: #fff; --note: #fff4a8; }
+  .no-print { display: none !important; }
+  .print-only { display: block; }
+  main { max-width: none; padding: 0; }
+  .note { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .result-board { break-inside: avoid; }
+  .result-board .board { width: 8cm; }
+  table, section { break-inside: auto; }
+  tr { break-inside: avoid; }
+}
