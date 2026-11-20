@@ -68,7 +68,8 @@ export interface Seed {
 }
 
 // Makes a workspace with the given members and starts a round, through the API.
-export async function seed(names: string[]): Promise<Seed> {
+// With { round: false } it makes no round, and `round` is ''.
+export async function seed(names: string[], opts: { round?: boolean } = {}): Promise<Seed> {
   const { client: lead } = await leadClient();
   const workspace = await call(lead.rpc('create_workspace', { p_name: `Test client ${Date.now()}`, p_lead_name: 'Lena Lead' }));
   const members = [];
@@ -78,7 +79,7 @@ export async function seed(names: string[]): Promise<Seed> {
     members.push({ name, id: row.member_id, token: row.token, client });
   }
   const leadMember = await call(lead.rpc('my_member', { p_workspace: workspace })) as string;
-  const round = await call(lead.rpc('start_round', { p_workspace: workspace })) as string;
+  const round = opts.round === false ? '' : await call(lead.rpc('start_round', { p_workspace: workspace })) as string;
   return { workspace: workspace as string, round, lead, leadMember, members };
 }
 
@@ -93,6 +94,19 @@ export async function addNote(s: Seed, who: number, body: string) {
 export async function place(s: Seed, who: number, noteId: string, x: number, y: number) {
   const m = s.members[who];
   await call(m.client.from('placements').upsert({ note_id: noteId, member_id: m.id, round_id: s.round, x, y }).select());
+}
+
+export async function addResponse(s: Seed, who: number, body: string) {
+  const m = s.members[who];
+  const [row] = await call(
+    m.client.from('responses').insert({ workspace_id: s.workspace, member_id: m.id, body }).select(),
+  ) as { id: string }[];
+  return row.id;
+}
+
+export async function vote(s: Seed, who: number, noteId: string) {
+  const m = s.members[who];
+  await call(m.client.from('votes').insert({ note_id: noteId, member_id: m.id, round_id: s.round }).select());
 }
 
 export async function advance(s: Seed, times = 1) {

@@ -123,11 +123,26 @@ expect('vote removal refused after close', (await as('a', `delete from public.vo
 expect('A sees all votes when closed', (await as('a', 'select * from public.votes')).length === 3);
 await expectError('vote refused after close', () => as('b', `insert into public.votes values ($1,$2,$3)`, [nb, mb.member_id, round]));
 
+// After the round (jobs 10 and 11): any person moves a note off the board
+// and gives it a topic, only through the functions.
+await as('b', `select public.set_note_status($1,'icebox')`, [na]);
+expect('A reads the status B set', (await as('a', 'select status from public.notes where id=$1', [na]))[0].status === 'icebox');
+await as('a', `select public.set_note_status($1,null)`, [na]);
+expect('a note goes back on the board', (await as('b', 'select status from public.notes where id=$1', [na]))[0].status === null);
+await as('a', `select public.set_note_topic($1,'  Pricing  ')`, [na]);
+expect('topic is stored without spaces at the ends', (await as('b', 'select topic from public.notes where id=$1', [na]))[0].topic === 'Pricing');
+await as('a', `select public.set_note_topic($1,'')`, [na]);
+expect('an empty topic clears it', (await as('b', 'select topic from public.notes where id=$1', [na]))[0].topic === null);
+await expectError('topic over 60 characters refused', () => as('a', `select public.set_note_topic($1,$2)`, [na, 'x'.repeat(61)]));
+await expectError('direct update of status refused', () => as('a', `update public.notes set status='closed' where id=$1`, [na]));
+await expectError('direct insert with a status refused', () => as('a', `insert into public.notes(workspace_id, round_id, member_id, body, status) values ($1,$2,$3,'x','icebox')`, [ws, round, ma.member_id]));
+
 // Cancel A's link: both of A's sessions lose access.
 await as('lead', `select public.cancel_member_link($1)`, [ma.member_id]);
 expect('canceled A sees no workspace', (await as('a', 'select * from public.workspaces')).length === 0);
 expect('canceled A2 sees no notes', (await as('a2', 'select * from public.notes')).length === 0);
 expect('canceled A sees no placements', (await as('a', 'select * from public.placements')).length === 0);
+await expectError('canceled A cannot set a status', () => as('a', `select public.set_note_status($1,'closed')`, [nb]));
 expect('canceled link refused on claim', (await as('a', `select public.claim_link($1) as w`, [ma.token]))[0].w === null);
 const tok2 = (await as('lead', `select public.new_member_link($1) as t`, [ma.member_id]))[0].t;
 expect('new link works', (await as('a', `select public.claim_link($1) as w`, [tok2]))[0].w === ws);
@@ -144,6 +159,10 @@ for (let i = 0; i < 4; i++) ids.push((await as('b', `insert into public.notes(wo
 for (const st of ['brainstorm', 'placement', 'compare']) await as('lead', `select public.advance_round($1,$2)`, [r2, st]);
 for (let i = 0; i < 3; i++) await as('b', `insert into public.votes values ($1,$2,$3)`, [ids[i], mb.member_id, r2]);
 await expectError('fourth vote refused', () => as('b', `insert into public.votes values ($1,$2,$3)`, [ids[3], mb.member_id, r2]));
+await expectError('status refused while the round is open', () => as('b', `select public.set_note_status($1,'icebox')`, [ids[0]]));
+await expectError('topic refused while the round is open', () => as('b', `select public.set_note_topic($1,'x')`, [ids[0]]));
+const otherNote = (await as('lead', `insert into public.notes(workspace_id, round_id, member_id, body) values ($1,$2,(select public.my_member($1)),'other') returning id`, [ws2, otherRound]))[0].id;
+await expectError('status refused for a note of another workspace', () => as('b', `select public.set_note_status($1,'icebox')`, [otherNote]));
 await db.exec('reset role;');
 await db.exec('set role anon;');
 expect('anon role reads nothing', await db.query('select * from public.notes').then(() => false, (e) => /permission denied/.test(e.message)));
