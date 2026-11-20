@@ -1,0 +1,33 @@
+:root { --ink: #1d1d1f; --muted: #6b6b70; --line: #c9c9cf; --accent: #2d5bd7; --paper: #fff; --note: #fff4a8; }
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #ececef; --muted: #a0a0a8; --line: #4a4a52; --accent: #7ea0ff; --paper: #161618; --note: #5a5222; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: var(--ink); background: var(--paper); }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.bar { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+label { display: block; margin: 8px 0; }
+input, textarea, select { font: inherit; padding: 6px; width: 100%; max-width: 560px; display: block; }
+input[type='checkbox'] { display: inline; width: auto; }
+button { font: inherit; padding: 6px 12px; cursor: pointer; }
+.error { color: #c0392b; }
+.link-box input { max-width: 100%; }
+.responses > li { border: 1px solid var(--line); padding: 8px 12px; margin: 8px 0; list-style: none; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.differ { color: #c0392b; }
+.tie { font-weight: 700; font-size: 1.2em; }
+.board-layout { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.board-wrap { display: flex; gap: 8px; }
+.axis-y { display: flex; flex-direction: column; justify-content: space-between; writing-mode: vertical-rl; transform: rotate(180deg); color: var(--muted); }
+.axis-y span:first-child { order: 2; } .axis-y span:last-child { order: 1; }
+.axis-x { display: flex; justify-content: space-between; color: var(--muted); }
+.board { position: relative; width: min(560px, 80vw); aspect-ratio: 1; border: 2px solid var(--ink); }
+.board.editable { cursor: crosshair; }
+.line-v { position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed var(--line); }
+.line-h { position: absolute; top: 50%; left: 0; right: 0; border-top: 1px dashed var(--line); }
+.note { background: var(--note); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; text-align: left; }
+.note.placed { position: absolute; transform: translate(-50%, -50%); max-width: 140px; font-size: 12px; padding: 2px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note.selected { outline: 3px solid var(--accent); }
+.tray ul { list-style: none; padding: 0; }
+.tray li { margin: 6px 0; }

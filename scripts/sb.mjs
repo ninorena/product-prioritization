@@ -8,6 +8,7 @@
 //   node scripts/sb.mjs configure <test|prod>  set the auth settings the app needs
 //   node scripts/sb.mjs lead <test|prod>       let LEAD_EMAIL make workspaces
 //   node scripts/sb.mjs setup <test|prod>      migrate, configure and lead, in that order
+//   node scripts/sb.mjs clean test             delete the data the tests made
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -17,6 +18,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 if (existsSync(join(root, '.env'))) process.loadEnvFile(join(root, '.env'));
 
 const API = 'https://api.supabase.com/v1';
+const TEST_LEAD = 'test-lead@example.test';
 const SITE = {
   test: 'http://localhost:5173',
   prod: 'https://tools.peoplepurposeproduct.com',
@@ -119,7 +121,24 @@ const commands = {
     if (!email) fail('LEAD_EMAIL is missing from .env');
     const safe = email.toLowerCase().replace(/'/g, "''");
     await sql(ref, `insert into private.leads(email) values ('${safe}') on conflict do nothing;`);
+    if (target === 'test') {
+      // The invented lead that the Playwright tests sign in as.
+      await sql(ref, `insert into private.leads(email) values ('${TEST_LEAD}') on conflict do nothing;`);
+    }
     console.log(`lead added on ${target} (email not shown)`);
+  },
+
+  // Deletes what the tests made: the test lead's workspaces, then each
+  // anonymous user that is no longer a member anywhere. Runs only on the
+  // test project, and keeps the sessions of a round that a person runs by hand.
+  async clean(target) {
+    if (target !== 'test') fail('clean runs only on the test project');
+    const ref = refFor(target);
+    await sql(ref, `delete from public.workspaces w using auth.users u
+      where w.owner_id = u.id and u.email = '${TEST_LEAD}';
+      delete from auth.users u where u.is_anonymous is true
+        and not exists (select 1 from private.member_sessions s where s.user_id = u.id);`);
+    console.log('test data deleted');
   },
 
   async setup(target) {
@@ -131,6 +150,6 @@ const commands = {
 
 const [cmd, target] = process.argv.slice(2);
 if (!commands[cmd] || !['test', 'prod'].includes(target)) {
-  fail('usage: node scripts/sb.mjs <check|keys|migrate|configure|lead|setup> <test|prod>');
+  fail('usage: node scripts/sb.mjs <check|keys|migrate|configure|lead|setup|clean> <test|prod>');
 }
 await commands[cmd](target);
