@@ -1,0 +1,28 @@
+# Supabase pauses a free project after 1 week with no activity.
+# This job reads each project one time each day so that it stays active.
+name: keepalive
+
+on:
+  schedule:
+    - cron: '17 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [TEST, PROD]
+    steps:
+      - name: Read the ${{ matrix.target }} project
+        env:
+          URL: ${{ vars[format('SUPABASE_{0}_URL', matrix.target)] }}
+          KEY: ${{ secrets[format('SUPABASE_{0}_ANON_KEY', matrix.target)] }}
+        run: |
+          test -n "$URL" || { echo "repo variable SUPABASE_${{ matrix.target }}_URL is not set"; exit 1; }
+          test -n "$KEY" || { echo "repo secret SUPABASE_${{ matrix.target }}_ANON_KEY is not set"; exit 1; }
+          curl --fail --silent --show-error -X POST "$URL/rest/v1/rpc/ping" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}'
