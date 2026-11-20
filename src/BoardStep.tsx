@@ -12,6 +12,7 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
   const [selected, setSelected] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string>(me);
   const [error, setError] = useState('');
+  const [voting, setVoting] = useState(false);
 
   // Each load and each change takes a number. A load applies its result
   // only if nothing started after it, so a slow load cannot undo a change.
@@ -48,24 +49,30 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
     setError('');
     const row = { note_id: selected, member_id: me, round_id: round.id, x: offLine(x), y: offLine(y) };
     // Show the move at once, so the next click works on the new board.
-    setPlacements((cur) => [...cur.filter((p) => !(p.note_id === row.note_id && p.member_id === me)), row]);
+    const same = (p: Placement) => p.note_id === row.note_id && p.member_id === me;
+    const before = placements.find(same);
+    setPlacements((cur) => [...cur.filter((p) => !same(p)), row]);
     setSelected(null);
     const { error } = await supabase.from('placements').upsert(row, { onConflict: 'note_id,member_id' });
     if (error) {
       setError(error.message);
-      load();
+      // Undo only this move. Other moves may still be saving.
+      setPlacements((cur) => [...cur.filter((p) => !same(p)), ...(before ? [before] : [])]);
     }
   }
 
   async function toggleVote(noteId: string) {
     gen.current++;
+    if (voting) return;
+    setVoting(true);
     setError('');
     const has = myVotes.some((v) => v.note_id === noteId);
     const { error } = has
       ? await supabase.from('votes').delete().eq('note_id', noteId).eq('member_id', me)
       : await supabase.from('votes').insert({ note_id: noteId, member_id: me, round_id: round.id });
     if (error) setError(error.message);
-    load();
+    await load();
+    setVoting(false);
   }
 
   const people = members.filter((m) => placements.some((p) => p.member_id === m.id) || m.id === me);
@@ -137,7 +144,7 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
                 <li key={n.id} data-testid="vote-row">
                   <span>{n.body}</span>{' '}
                   <button
-                    disabled={!has && myVotes.length >= VOTES}
+                    disabled={voting || (!has && myVotes.length >= VOTES)}
                     onClick={() => toggleVote(n.id)}
                   >
                     {has ? 'Remove my vote' : 'Vote'}

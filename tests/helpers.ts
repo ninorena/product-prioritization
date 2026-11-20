@@ -96,7 +96,10 @@ export async function place(s: Seed, who: number, noteId: string, x: number, y: 
 }
 
 export async function advance(s: Seed, times = 1) {
-  for (let i = 0; i < times; i++) await call(s.lead.rpc('advance_round', { p_round: s.round }));
+  for (let i = 0; i < times; i++) {
+    const [r] = await call(s.lead.from('rounds').select('step').eq('id', s.round)) as { step: string }[];
+    await call(s.lead.rpc('advance_round', { p_round: s.round, p_from: r.step }));
+  }
 }
 
 // A browser for the lead, signed in without email.

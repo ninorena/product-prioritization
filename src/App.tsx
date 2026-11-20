@@ -39,7 +39,7 @@ export function App() {
   }, []);
 
   if (!configured) return <main><p>The app has no Supabase settings.</p></main>;
-  if (route.kind === 'join') return <Join token={route.token} />;
+  if (route.kind === 'join') return <Join key={route.token} token={route.token} />;
   if (session === undefined) return <main><p>Loading…</p></main>;
   if (!session) return <SignIn />;
   if (route.kind === 'workspace') return <WorkspaceView id={route.id} session={session} />;

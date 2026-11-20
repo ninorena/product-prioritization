@@ -28,3 +28,14 @@ test('job 7: no tie, no tie-break text', async ({ browser }) => {
   await expect(lead.getByTestId('result-row').first()).toHaveAttribute('data-count', '2');
   await expect(lead.getByTestId('tie')).toHaveCount(0);
 });
+
+test('job 7: a vote with no votes at all shows no tie-break text', async ({ browser }) => {
+  const s = await seed(['Ana Test']);
+  await addNote(s, 0, 'Unvoted invented question one');
+  await addNote(s, 0, 'Unvoted invented question two');
+  await advance(s, 4);
+  const lead = await leadPage(browser);
+  await lead.goto(`/#/w/${s.workspace}`);
+  await expect(lead.getByTestId('result-row')).toHaveCount(2);
+  await expect(lead.getByTestId('tie')).toHaveCount(0);
+});

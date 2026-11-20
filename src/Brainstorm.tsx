@@ -59,7 +59,7 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
     }
   }
 
-  async function addNote(r: Response, text: string) {
+  async function addNote(r: Response, text: string): Promise<boolean> {
     gen.current++;
     setError('');
     const { data, error } = await supabase
@@ -67,10 +67,14 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
       .insert({ workspace_id: workspaceId, round_id: round.id, member_id: me, response_id: r.id, body: text })
       .select()
       .single();
-    if (error) return setError(error.message);
+    if (error) {
+      setError(error.message);
+      return false;
+    }
     // Add only the new note. A full reload here could undo a change the
     // person made while the save ran.
     setNotes((cur) => [...cur, data as Note]);
+    return true;
   }
 
   async function removeNote(n: Note) {
@@ -147,16 +151,16 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
   );
 }
 
-function NoteForm({ onAdd }: { onAdd: (text: string) => Promise<void> }) {
+function NoteForm({ onAdd }: { onAdd: (text: string) => Promise<boolean> }) {
   const [text, setText] = useState('');
   return (
     <form
       onSubmit={async (e) => {
         e.preventDefault();
         const sent = text;
-        await onAdd(sent);
-        // Keep any text the person typed while the save ran.
-        setText((cur) => (cur === sent ? '' : cur));
+        // On a failed save the question stays, so the person can try again.
+        // On success, keep any text the person typed while the save ran.
+        if (await onAdd(sent)) setText((cur) => (cur === sent ? '' : cur));
       }}
     >
       <label>

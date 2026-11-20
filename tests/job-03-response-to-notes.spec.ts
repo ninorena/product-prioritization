@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { memberPage, seed } from './helpers';
+import { advance, memberPage, seed } from './helpers';
 
 test('job 3: one response gives two notes, and another is marked "question not known"', async ({ browser }) => {
   const s = await seed(['Ana Test']);
@@ -32,4 +32,23 @@ test('job 3: one response gives two notes, and another is marked "question not k
   await page.reload();
   await expect(page.getByTestId('response').nth(1).getByLabel('Question not known')).toBeChecked();
   await expect(page.getByTestId('my-note')).toHaveCount(2);
+});
+
+test('job 3: a person deletes a note in the brainstorm, and it never reaches the pool', async ({ browser }) => {
+  const s = await seed(['Ana Test', 'Ben Test']);
+  const page = await memberPage(browser, s.members[0].token);
+  await page.getByLabel('Response').fill('Invented response with a wrong question');
+  await page.getByRole('button', { name: 'Save the response' }).click();
+  const r = page.getByTestId('response').first();
+  await r.getByLabel('Question', { exact: true }).fill('Wrong invented question?');
+  await r.getByRole('button', { name: 'Add the note' }).click();
+  await expect(r.getByTestId('my-note')).toHaveCount(1);
+  await r.getByTestId('my-note').getByRole('button', { name: 'Delete' }).click();
+  await expect(r.getByTestId('my-note')).toHaveCount(0);
+  await expect.poll(async () => (await s.members[0].client.from('notes').select('*')).data?.length).toBe(0);
+  await page.reload();
+  await expect(page.getByTestId('my-note')).toHaveCount(0);
+  await advance(s);
+  const { data } = await s.members[1].client.from('notes').select('*').eq('round_id', s.round);
+  expect(data).toHaveLength(0);
 });

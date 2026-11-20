@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { Member, Round, Workspace } from './types';
-import { NEXT_ACTION, STEP_LABEL } from './types';
+import { NEXT_ACTION, STEP_LABEL, STEPS } from './types';
 import { Brainstorm } from './Brainstorm';
 import { BoardStep } from './BoardStep';
 import { Results } from './Results';
@@ -38,7 +38,11 @@ export function WorkspaceView({ id, session }: { id: string; session: Session })
         .from('rounds').select('*').eq('workspace_id', id)
         .order('created_at', { ascending: false }).limit(1);
       const next = data?.[0] ?? null;
-      setRound((cur) => (cur?.id === next?.id && cur?.step === next?.step ? cur : next));
+      // A slow answer must never move the screen back to an earlier step.
+      setRound((cur) => {
+        if (!next || (cur && cur.id === next.id && STEPS.indexOf(next.step) <= STEPS.indexOf(cur.step))) return cur;
+        return next;
+      });
     }, 10000);
     return () => clearInterval(t);
   }, [id]);
@@ -65,7 +69,7 @@ export function WorkspaceView({ id, session }: { id: string; session: Session })
   async function advance() {
     if (!round) return;
     setError('');
-    const { error } = await supabase.rpc('advance_round', { p_round: round.id });
+    const { error } = await supabase.rpc('advance_round', { p_round: round.id, p_from: round.step });
     if (error) setError(error.message);
     await load();
   }

@@ -1,4 +1,5 @@
 export type Step = 'brainstorm' | 'placement' | 'compare' | 'vote' | 'closed';
+export const STEPS: Step[] = ['brainstorm', 'placement', 'compare', 'vote', 'closed'];
 
 export interface Workspace { id: string; name: string; owner_id: string }
 export interface Member { id: string; workspace_id: string; display_name: string; role: 'lead' | 'member'; link_active: boolean }

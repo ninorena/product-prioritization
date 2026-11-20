@@ -36,3 +36,26 @@ test('job 9: each person has 3 votes, sees other boards, and counts show only af
   await expect(ben.getByTestId('result-row').filter({ hasText: 'question 4' })).toHaveAttribute('data-count', '0');
   await expect(ben.locator('[data-testid="result-row"][data-count="1"]')).toHaveCount(3);
 });
+
+test('job 9: a person removes a vote and gets it back', async ({ browser }) => {
+  const s = await seed(['Ana Test']);
+  await addNote(s, 0, 'Removable vote invented question');
+  await advance(s, 3);
+  const ana = await memberPage(browser, s.members[0].token);
+  const row = ana.getByTestId('vote-row').first();
+  await row.getByRole('button', { name: 'Vote' }).click();
+  await expect(ana.getByTestId('votes-left')).toHaveText('You have 2 of 3 votes left.');
+  await row.getByRole('button', { name: 'Remove my vote' }).click();
+  await expect(ana.getByTestId('votes-left')).toHaveText('You have 3 of 3 votes left.');
+  await expect.poll(async () => (await s.members[0].client.from('votes').select('*')).data?.length).toBe(0);
+});
+
+test('job 9: an open page moves to the next step without a reload', async ({ browser }) => {
+  const s = await seed(['Ana Test']);
+  await addNote(s, 0, 'Poll invented question');
+  const ana = await memberPage(browser, s.members[0].token);
+  await expect(ana.getByTestId('round-step')).toHaveAttribute('data-step', 'brainstorm');
+  await advance(s);
+  await expect(ana.getByTestId('round-step')).toHaveAttribute('data-step', 'placement', { timeout: 15_000 });
+  await expect(ana.getByTestId('tray-note')).toHaveCount(1);
+});
