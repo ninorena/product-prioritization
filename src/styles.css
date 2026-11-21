@@ -1,6 +1,6 @@
-:root { --ink: #1d1d1f; --muted: #6b6b70; --line: #c9c9cf; --accent: #2d5bd7; --paper: #fff; --note: #fff4a8; }
+:root { --ink: #1d1d1f; --muted: #6b6b70; --line: #c9c9cf; --accent: #2d5bd7; --paper: #fff; --note: #fff4a8; --canvas: #f6f6f3; }
 @media (prefers-color-scheme: dark) {
-  :root { --ink: #ececef; --muted: #a0a0a8; --line: #4a4a52; --accent: #7ea0ff; --paper: #161618; --note: #5a5222; }
+  :root { --ink: #ececef; --muted: #a0a0a8; --line: #4a4a52; --accent: #7ea0ff; --paper: #161618; --note: #5a5222; --canvas: #202024; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: var(--ink); background: var(--paper); }
@@ -12,25 +12,62 @@ input[type='checkbox'] { display: inline; width: auto; }
 button { font: inherit; padding: 6px 12px; cursor: pointer; }
 .error { color: #c0392b; }
 .link-box input { max-width: 100%; }
-.responses > li { border: 1px solid var(--line); padding: 8px 12px; margin: 8px 0; list-style: none; }
 table { border-collapse: collapse; width: 100%; margin: 12px 0; }
 th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
 .differ { color: #c0392b; }
 .tie { font-weight: 700; font-size: 1.2em; }
 .board-layout { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
 .board-wrap { display: flex; gap: 8px; }
-.axis-y { display: flex; flex-direction: column; justify-content: space-between; writing-mode: vertical-rl; transform: rotate(180deg); color: var(--muted); }
-.axis-y span:first-child { order: 2; } .axis-y span:last-child { order: 1; }
+/* Each label turns on its own. The column runs down the page, so "More
+   important" sits at the top and "Less important" at the bottom. */
+.axis-y { display: flex; flex-direction: column; justify-content: space-between; color: var(--muted); }
+.axis-y span { writing-mode: vertical-rl; transform: rotate(180deg); }
 .axis-x { display: flex; justify-content: space-between; color: var(--muted); }
-.board { position: relative; width: min(560px, 80vw); aspect-ratio: 1; border: 2px solid var(--ink); }
+.board { position: relative; width: min(900px, calc(100vw - 80px), 72vh); aspect-ratio: 1; border: 2px solid var(--ink); background: var(--canvas); }
 .board.editable { cursor: crosshair; }
 .line-v { position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed var(--line); }
 .line-h { position: absolute; top: 50%; left: 0; right: 0; border-top: 1px dashed var(--line); }
 .note { background: var(--note); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; text-align: left; }
-.note.placed { position: absolute; transform: translate(-50%, -50%); max-width: 140px; font-size: 12px; padding: 2px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note.placed { position: absolute; transform: translate(-50%, -50%); width: max-content; max-width: 150px; font-size: 12px; line-height: 1.3; padding: 4px 6px; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* Hover or focus shows the full note on top of the others. */
+.note.placed:hover, .note.placed:focus-visible { -webkit-line-clamp: unset; max-width: 260px; z-index: 10; overflow: visible; }
 .note.selected { outline: 3px solid var(--accent); }
+.draggable { touch-action: none; cursor: grab; user-select: none; }
+.drag-ghost { position: fixed; z-index: 100; pointer-events: none; transform: translate(-50%, -50%) rotate(-2deg); max-width: 180px; padding: 6px 8px; font-size: 13px; box-shadow: 0 6px 16px rgba(0,0,0,.3); opacity: .9; }
+.tray { width: 260px; }
 .tray ul { list-style: none; padding: 0; }
-.tray li { margin: 6px 0; }
+.tray li { margin: 8px 0; }
+.tray-note { width: 100%; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.quadrant-picker { display: flex; flex-direction: column; gap: 8px; }
+
+/* Version 2 canvas: sticky notes on a light area, prompts beside it. */
+.canvas-layout { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.canvas { flex: 1 1 520px; min-height: 360px; padding: 16px; background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; }
+.side-panel { flex: 0 1 280px; }
+.side-panel ul { padding-left: 18px; }
+.side-panel li { margin: 6px 0; }
+.note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; align-items: start; }
+.sticky { position: relative; min-height: 120px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+.sticky-text { all: unset; display: block; width: 100%; min-height: 100px; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
+.sticky-text:focus-visible { outline: 2px solid var(--accent); }
+.sticky-delete { position: absolute; top: 2px; right: 2px; padding: 0 6px; border: none; background: transparent; color: var(--muted); font-size: 18px; opacity: 0; }
+.sticky:hover .sticky-delete, .sticky-delete:focus-visible { opacity: 1; }
+.sticky.editing textarea { width: 100%; max-width: none; min-height: 100px; border: none; background: transparent; color: inherit; resize: none; padding: 0; }
+.add-note { min-height: 120px; border: 2px dashed var(--line); border-radius: 4px; background: transparent; color: var(--muted); }
+.small-boards { display: flex; gap: 24px; flex-wrap: wrap; margin: 12px 0; }
+.small-board { all: unset; cursor: pointer; display: block; padding: 8px; border-radius: 8px; }
+.small-board:hover, .small-board:focus-visible { outline: 2px solid var(--accent); }
+.small-board-name { display: block; font-weight: 600; margin-bottom: 4px; }
+.board-wrap.small .board { width: 260px; }
+.board-wrap.small .axis-y, .board-wrap.small .axis-x { font-size: 10px; }
+.board-wrap.small .note.placed { font-size: 9px; max-width: 70px; padding: 1px 3px; -webkit-line-clamp: 2; }
+.vote-note p { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dots { display: flex; gap: 4px; min-height: 16px; margin-bottom: 8px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
+.dot-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.dot-buttons button { min-height: 32px; }
+details { margin: 16px 0; }
 label.inline { display: inline; margin: 0; }
 label.inline select, label.inline input { display: inline; width: auto; max-width: 220px; }
 .inline-form { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
