@@ -144,3 +144,24 @@ export async function clickBoard(page: Page, x: number, y: number) {
   const box = (await board.boundingBox())!;
   await board.click({ position: { x: x * box.width, y: (1 - y) * box.height } });
 }
+
+// Writes one note on the brainstorm canvas: open a new note, type, Enter.
+export async function writeNote(page: Page, text: string) {
+  const input = page.getByTestId('note-input');
+  if (!(await input.isVisible())) await page.getByTestId('add-note').click();
+  await input.fill(text);
+  await input.press('Enter');
+  await expect(page.getByTestId('my-note').filter({ hasText: text })).toHaveCount(1);
+}
+
+// Drags a note to a place on the full-size board. x: 0 Harder, 1 Easier.
+// y: 0 Less, 1 More important.
+export async function dragToBoard(page: Page, note: ReturnType<Page['getByTestId']>, x: number, y: number) {
+  const box = (await page.getByTestId('board').boundingBox())!;
+  const from = (await note.boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2 + 20, { steps: 3 });
+  await page.mouse.move(box.x + x * box.width, box.y + (1 - y) * box.height, { steps: 5 });
+  await page.mouse.up();
+}

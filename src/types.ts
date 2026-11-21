@@ -16,7 +16,7 @@ export const STATUS_LABEL: Record<NoteStatus | 'board', string> = {
   closed: 'Closed',
 };
 export interface Placement { note_id: string; member_id: string; round_id: string; x: number; y: number }
-export interface Vote { note_id: string; member_id: string; round_id: string }
+export interface Vote { id: string; note_id: string; member_id: string; round_id: string }
 
 export const STEP_LABEL: Record<Step, string> = {
   brainstorm: 'Brainstorm',
@@ -29,7 +29,7 @@ export const STEP_LABEL: Record<Step, string> = {
 // The lead's button for each step moves the round to the next step.
 export const NEXT_ACTION: Partial<Record<Step, string>> = {
   brainstorm: 'Close the brainstorm',
-  placement: 'Open the compare step',
-  compare: 'Open the vote',
+  placement: 'Compare',
+  compare: 'Vote',
   vote: 'Close the vote',
 };

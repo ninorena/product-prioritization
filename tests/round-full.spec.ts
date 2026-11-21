@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { clickBoard, leadPage, stepIs } from './helpers';
+import { clickBoard, leadPage, stepIs, writeNote } from './helpers';
 
 // Outcome steps 1 to 8 through the screens: the lead makes a workspace,
 // adds a member, and the two of them run one round. Jobs 2, 3, 5, 6 and 9.
@@ -24,17 +24,9 @@ test('jobs 2-9: the lead and one member run one full round in the screens', asyn
   await expect(ana.getByTestId('workspace')).toBeVisible();
   expect(ana.url()).not.toContain('#/j/'); // the token leaves the address bar
 
-  // Step 1 and 2: responses, then notes.
-  async function write(page: Page, response: string, question: string) {
-    await page.getByLabel('Response').fill(response);
-    await page.getByRole('button', { name: 'Save the response' }).click();
-    const r = page.getByTestId('response').filter({ hasText: response });
-    await r.getByLabel('Question', { exact: true }).fill(question);
-    await r.getByRole('button', { name: 'Add the note' }).click();
-    await expect(r.getByTestId('my-note')).toHaveCount(1);
-  }
-  await write(ana, 'Invented worry about onboarding', 'Will invented users finish onboarding?');
-  await write(lead, 'Invented worry about price', 'Will invented buyers pay the price?');
+  // Step 1 and 2: each person writes notes straight onto the canvas.
+  await writeNote(ana, 'Will invented users finish onboarding?');
+  await writeNote(lead, 'Will invented buyers pay the price?');
 
   // Step 3: the lead closes the brainstorm.
   await lead.getByRole('button', { name: 'Close the brainstorm' }).click();
@@ -52,19 +44,22 @@ test('jobs 2-9: the lead and one member run one full round in the screens', asyn
   await placeAll(lead, [[0.8, 0.2], [0.8, 0.8]]);
 
   // Step 5: compare.
-  await lead.getByRole('button', { name: 'Open the compare step' }).click();
+  await lead.getByRole('button', { name: 'Compare', exact: true }).click();
   await stepIs(ana, 'compare');
   await expect(ana.getByTestId('compare-row').first()).toHaveAttribute('data-differ', 'true');
 
-  // Step 6: Ana changes her own board.
+  await expect(ana.getByTestId('small-board')).toHaveCount(2);
+
+  // Step 6: Ana opens her own board and changes it.
+  await ana.getByTestId('small-board').filter({ hasText: '(you)' }).click();
   await ana.getByTestId('placed-note').first().click();
   await clickBoard(ana, 0.3, 0.3);
 
   // Step 7: vote.
-  await lead.getByRole('button', { name: 'Open the vote' }).click();
+  await lead.getByRole('button', { name: 'Vote', exact: true }).click();
   await stepIs(ana, 'vote');
-  await ana.getByTestId('vote-row').first().getByRole('button', { name: 'Vote' }).click();
-  await expect(ana.getByTestId('votes-left')).toHaveText('You have 2 of 3 votes left.');
+  await ana.getByTestId('vote-row').first().getByRole('button', { name: 'Add a dot' }).click();
+  await expect(ana.getByTestId('votes-left')).toHaveText('You have 2 of 3 dots left.');
 
   // Step 8: the lead closes the vote, and the counts show.
   await stepIs(lead, 'vote');

@@ -2,7 +2,7 @@
 
 A small web tool to prioritize product risks on a 2x2 board, with a group that cannot meet live.
 
-Each person writes responses to brainstorm prompts and turns them into notes. A note is one question about the product. Each person places every note on their own board, alone. Then the group compares the boards one time, each person can change their board, and the group votes.
+Each person writes notes on a canvas, with the brainstorm prompts beside it. A note is one question about the product. Each person drags every note onto their own board, alone. Then the group compares the boards side by side one time, each person can change their board, and the group votes with 3 dots each.
 
 The method comes from [Completing a 2x2 risk prioritization matrix](https://kromatic.com/blog/completing-a-2x2-risk-prioritization-matrix/). The jobs the tool must do are in [docs/jobs.md](docs/jobs.md).
 

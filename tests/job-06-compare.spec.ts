@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { addNote, advance, clickBoard, memberPage, place, seed } from './helpers';
 import type { Placement } from '../src/types';
 
-test('job 6: compare shows each person\'s quadrant, disagreements first, then a person changes their board', async ({ browser }) => {
+test('job 6: compare shows a small board for each person, the table puts disagreements first, and a person changes their board', async ({ browser }) => {
   const s = await seed(['Ana Test', 'Ben Test']);
   const agree = await addNote(s, 0, 'Agreed invented question');
   const differ = await addNote(s, 1, 'Disputed invented question');
@@ -14,6 +14,7 @@ test('job 6: compare shows each person\'s quadrant, disagreements first, then a 
   await advance(s); // open the compare step
 
   const ana = await memberPage(browser, s.members[0].token);
+  await expect(ana.getByTestId('small-board')).toHaveCount(2);
   const rows = ana.getByTestId('compare-row');
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toHaveAttribute('data-differ', 'true');
@@ -22,7 +23,13 @@ test('job 6: compare shows each person\'s quadrant, disagreements first, then a 
   await expect(rows.first()).toContainText('Less important, Easier');
   await expect(rows.nth(1)).toHaveAttribute('data-differ', 'false');
 
-  // Ana moves the disputed note to Ben's quadrant.
+  // Ana opens Ben's board full size, goes back, then moves the disputed
+  // note on her own board to Ben's quadrant.
+  await ana.getByTestId('small-board').filter({ hasText: 'Ben Test' }).click();
+  await expect(ana.getByTestId('open-board')).toHaveText('Board of Ben Test');
+  await expect(ana.getByTestId('tray')).toHaveCount(0);
+  await ana.keyboard.press('Escape');
+  await ana.getByTestId('small-board').filter({ hasText: 'Ana Test (you)' }).click();
   await ana.getByTestId('placed-note').filter({ hasText: 'Disputed' }).click();
   await clickBoard(ana, 0.85, 0.15);
   await expect.poll(async () => {

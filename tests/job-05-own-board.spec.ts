@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addNote, advance, clickBoard, memberPage, place, seed } from './helpers';
+import { addNote, advance, clickBoard, dragToBoard, memberPage, place, seed } from './helpers';
 
 test('job 5: each person places every note on their own board, alone', async ({ browser }) => {
   const s = await seed(['Ana Test', 'Ben Test']);
@@ -20,6 +20,31 @@ test('job 5: each person places every note on their own board, alone', async ({ 
   const ben = await memberPage(browser, s.members[1].token);
   await expect(ben.getByTestId('placed-note')).toHaveCount(0);
   await expect(ben.getByTestId('placed-count')).toHaveText('Placed 0 of 2');
+});
+
+test('job 5: a person drags a note onto the board, then drags it to a new place', async ({ browser }) => {
+  const s = await seed(['Ana Test']);
+  await addNote(s, 0, 'Dragged invented question');
+  await advance(s);
+  const ana = await memberPage(browser, s.members[0].token);
+  await dragToBoard(ana, ana.getByTestId('tray-note').first(), 0.2, 0.8);
+  const placed = ana.getByTestId('placed-note');
+  await expect(placed).toHaveAttribute('data-quadrant', 'More important, Harder');
+  await expect(ana.getByTestId('placed-count')).toHaveText('Placed 1 of 1');
+  await dragToBoard(ana, placed, 0.8, 0.2);
+  await expect(placed).toHaveAttribute('data-quadrant', 'Less important, Easier');
+  await expect.poll(async () => (await s.members[0].client.from('placements').select('x').eq('member_id', s.members[0].id)).data?.[0]?.x).toBeGreaterThan(0.5);
+});
+
+test('job 5: a keyboard user places a note with the quadrant buttons', async ({ browser }) => {
+  const s = await seed(['Ana Test']);
+  await addNote(s, 0, 'Keyboard invented question');
+  await advance(s);
+  const ana = await memberPage(browser, s.members[0].token);
+  await ana.getByTestId('tray-note').first().focus();
+  await ana.keyboard.press('Enter');
+  await ana.getByTestId('quadrant-picker').getByRole('button', { name: 'Less important, Harder' }).click();
+  await expect(ana.getByTestId('placed-note')).toHaveAttribute('data-quadrant', 'Less important, Harder');
 });
 
 test('job 5: in the placement step, person A reads zero placements of person B from the database', async () => {

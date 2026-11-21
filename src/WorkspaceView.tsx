@@ -7,7 +7,6 @@ import { Brainstorm } from './Brainstorm';
 import { BoardStep } from './BoardStep';
 import { Results } from './Results';
 import { OffBoard } from './OffBoard';
-import { WriteNow } from './WriteNow';
 
 export function WorkspaceView({ id, session }: { id: string; session: Session }) {
   const [ws, setWs] = useState<Workspace | null | undefined>(undefined);
@@ -114,7 +113,6 @@ export function WorkspaceView({ id, session }: { id: string; session: Session })
       {round?.step === 'closed' && (
         <Results key={round.id} round={round} members={members} version={notesVersion} onChange={notesChanged} />
       )}
-      {round?.step !== 'brainstorm' && <WriteNow key={`write-${round?.id ?? 'none'}`} workspaceId={id} me={me} />}
       <OffBoard workspaceId={id} latestRound={round?.step === 'closed' ? round.id : null} version={notesVersion} onChange={notesChanged} />
     </main>
   );

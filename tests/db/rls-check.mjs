@@ -161,6 +161,15 @@ for (let i = 0; i < 4; i++) ids.push((await as('b', `insert into public.notes(wo
 for (const st of ['brainstorm', 'placement', 'compare']) await as('lead', `select public.advance_round($1,$2)`, [r2, st]);
 for (let i = 0; i < 3; i++) await as('b', `insert into public.votes values ($1,$2,$3)`, [ids[i], mb.member_id, r2]);
 await expectError('fourth vote refused', () => as('b', `insert into public.votes values ($1,$2,$3)`, [ids[3], mb.member_id, r2]));
+// Version 2: more than one dot on one note, still 3 in total.
+const leadM = (await as('lead', `select public.my_member($1) as m`, [ws]))[0].m;
+for (let i = 0; i < 2; i++) await as('lead', `insert into public.votes values ($1,$2,$3)`, [ids[0], leadM, r2]);
+expect('two dots on one note', (await as('lead', `select * from public.votes where note_id=$1 and member_id=$2`, [ids[0], leadM])).length === 2);
+await as('lead', `insert into public.votes values ($1,$2,$3)`, [ids[0], leadM, r2]);
+await expectError('fourth dot on one note refused', () => as('lead', `insert into public.votes values ($1,$2,$3)`, [ids[0], leadM, r2]));
+const oneDot = (await as('lead', `select id from public.votes where member_id=$1 limit 1`, [leadM]))[0].id;
+expect('remove one dot by id', (await as('lead', `delete from public.votes where id=$1 returning id`, [oneDot])).length === 1);
+expect('two dots left', (await as('lead', `select * from public.votes where member_id=$1`, [leadM])).length === 2);
 await expectError('status refused while the round is open', () => as('b', `select public.set_note_status($1,'icebox')`, [ids[0]]));
 await expectError('topic refused while the round is open', () => as('b', `select public.set_note_topic($1,'x')`, [ids[0]]));
 const otherNote = (await as('lead', `insert into public.notes(workspace_id, round_id, member_id, body) values ($1,$2,(select public.my_member($1)),'other') returning id`, [ws2, otherRound]))[0].id;

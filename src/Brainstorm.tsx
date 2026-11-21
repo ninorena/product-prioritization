@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import { PROMPTS } from './prompts';
-import type { Note, Response, Round } from './types';
+import type { Note, Round } from './types';
 
+// Version 2: each person writes question notes straight onto their own
+// canvas, with the prompts beside it. There is no response step.
 export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; round: Round; me: string }) {
-  const [responses, setResponses] = useState<Response[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [prompt, setPrompt] = useState('');
-  const [body, setBody] = useState('');
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+  // The new note that is open for typing and not saved yet.
+  const [adding, setAdding] = useState(false);
+  // The saved note that is open for edits.
+  const [editing, setEditing] = useState<string | null>(null);
 
   // Each load and each change takes a number. A load applies its result
   // only if nothing started after it, so a slow load cannot undo a change.
@@ -18,59 +20,23 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
 
   const load = useCallback(async () => {
     const g = ++gen.current;
-    const [r, n, earlier] = await Promise.all([
-      supabase.from('responses').select('*').eq('workspace_id', workspaceId).eq('member_id', me).order('created_at'),
-      supabase.from('notes').select('*').eq('round_id', round.id).eq('member_id', me).order('created_at'),
-      supabase.from('notes').select('response_id').eq('workspace_id', workspaceId).eq('member_id', me)
-        .neq('round_id', round.id).not('response_id', 'is', null),
-    ]);
+    const { data } = await supabase
+      .from('notes').select('*').eq('round_id', round.id).eq('member_id', me).order('created_at');
     if (g !== gen.current) return;
     setLoaded(true);
-    // A response is done if it became a note in an earlier round, or if the
-    // person marked it "question not known" before this round started.
-    const done = new Set((earlier.data ?? []).map((x) => x.response_id as string));
-    setResponses((r.data ?? []).filter((x) =>
-      !done.has(x.id) && !(x.question_unknown && x.created_at < round.created_at)));
-    setNotes(n.data ?? []);
-  }, [workspaceId, round.id, me]);
+    setNotes(data ?? []);
+  }, [round.id, me]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function addResponse(e: React.FormEvent) {
-    e.preventDefault();
-    gen.current++;
-    setError('');
-    setSaving(true);
-    const { data, error } = await supabase
-      .from('responses')
-      .insert({ workspace_id: workspaceId, member_id: me, prompt: prompt || null, body })
-      .select()
-      .single();
-    setSaving(false);
-    if (error) return setError(error.message);
-    setResponses((cur) => [...cur, data as Response]);
-    // Keep any text the person typed while the save ran.
-    setBody((cur) => (cur === data.body ? '' : cur));
-  }
-
-  async function setUnknown(r: Response, value: boolean) {
-    gen.current++;
-    setResponses((cur) => cur.map((x) => (x.id === r.id ? { ...x, question_unknown: value } : x)));
-    const { error } = await supabase.from('responses').update({ question_unknown: value }).eq('id', r.id);
-    if (error) {
-      setError(error.message);
-      load();
-    }
-  }
-
-  async function addNote(r: Response, text: string): Promise<boolean> {
+  async function addNote(text: string): Promise<boolean> {
     gen.current++;
     setError('');
     const { data, error } = await supabase
       .from('notes')
-      .insert({ workspace_id: workspaceId, round_id: round.id, member_id: me, response_id: r.id, body: text })
+      .insert({ workspace_id: workspaceId, round_id: round.id, member_id: me, body: text })
       .select()
       .single();
     if (error) {
@@ -80,6 +46,19 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
     // Add only the new note. A full reload here could undo a change the
     // person made while the save ran.
     setNotes((cur) => [...cur, data as Note]);
+    return true;
+  }
+
+  async function editNote(n: Note, text: string): Promise<boolean> {
+    gen.current++;
+    setError('');
+    setNotes((cur) => cur.map((x) => (x.id === n.id ? { ...x, body: text } : x)));
+    const { error } = await supabase.from('notes').update({ body: text }).eq('id', n.id);
+    if (error) {
+      setError(error.message);
+      setNotes((cur) => cur.map((x) => (x.id === n.id ? { ...x, body: n.body } : x)));
+      return false;
+    }
     return true;
   }
 
@@ -96,83 +75,126 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
   return (
     <section data-testid="brainstorm">
       <h2>Brainstorm</h2>
-      <p>Write responses to the prompts. Then turn each response into one or more questions. Only you can read your responses and notes until the lead closes the brainstorm.</p>
-      <h3>Prompts</h3>
-      <ul data-testid="prompts">
-        {PROMPTS.map((p) => (
-          <li key={p}>{p}</li>
-        ))}
-      </ul>
-
-      {!loaded && <p>Loading…</p>}
-      {loaded && <>
-      <form onSubmit={addResponse} data-testid="response-form">
-        <h3>Write a response</h3>
-        <label>
-          Prompt
-          <select value={prompt} onChange={(e) => setPrompt(e.target.value)}>
-            <option value="">No prompt</option>
+      <p>Write one question on each note. Only you can see your notes until the lead closes the brainstorm.</p>
+      <div className="canvas-layout">
+        <div className="canvas" data-testid="canvas">
+          {!loaded && <p>Loading…</p>}
+          {loaded && (
+            <div className="note-grid">
+              {notes.map((n) =>
+                editing === n.id ? (
+                  <StickyEditor
+                    key={n.id}
+                    initial={n.body}
+                    onSave={async (t) => {
+                      if (t !== n.body && !(await editNote(n, t))) return false;
+                      setEditing(null);
+                      return true;
+                    }}
+                    onCancel={() => setEditing(null)}
+                  />
+                ) : (
+                  <div key={n.id} className="note sticky" data-testid="my-note">
+                    <button className="sticky-text" onClick={() => setEditing(n.id)} title="Change this note">
+                      {n.body}
+                    </button>
+                    <button className="sticky-delete" aria-label="Delete this note" onClick={() => removeNote(n)}>
+                      ×
+                    </button>
+                  </div>
+                ),
+              )}
+              {adding && (
+                <StickyEditor
+                  initial=""
+                  onSave={async (t) => {
+                    if (!(await addNote(t))) return false;
+                    // Keep the editor open for the next note.
+                    return 'again';
+                  }}
+                  onCancel={() => setAdding(false)}
+                />
+              )}
+              {!adding && (
+                <button className="add-note" data-testid="add-note" onClick={() => setAdding(true)}>
+                  + Add a note
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <aside className="side-panel" data-testid="prompts">
+          <h3>Prompts</h3>
+          <ul>
             {PROMPTS.map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <li key={p}>{p}</li>
             ))}
-          </select>
-        </label>
-        <label>
-          Response <textarea required value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
-        </label>
-        <button type="submit" disabled={saving}>Save the response</button>
-      </form>
+          </ul>
+        </aside>
+      </div>
       {error && <p className="error">{error}</p>}
-
-      <h3>Your responses</h3>
-      {responses.length === 0 && <p>No response yet.</p>}
-      <ul className="responses">
-        {responses.map((r) => (
-          <li key={r.id} data-testid="response">
-            {r.prompt && <small>{r.prompt}</small>}
-            <p className="response-body">{r.body}</p>
-            <label>
-              <input
-                type="checkbox"
-                checked={r.question_unknown}
-                onChange={(e) => setUnknown(r, e.target.checked)}
-              />{' '}
-              Question not known
-            </label>
-            <ul className="notes">
-              {notes
-                .filter((n) => n.response_id === r.id)
-                .map((n) => (
-                  <li key={n.id} data-testid="my-note">
-                    {n.body} <button onClick={() => removeNote(n)}>Delete</button>
-                  </li>
-                ))}
-            </ul>
-            {!r.question_unknown && <NoteForm onAdd={(t) => addNote(r, t)} />}
-          </li>
-        ))}
-      </ul>
-      </>}
     </section>
   );
 }
 
-function NoteForm({ onAdd }: { onAdd: (text: string) => Promise<boolean> }) {
-  const [text, setText] = useState('');
+// A sticky note open for typing. Enter saves. Shift+Enter adds a new line.
+// Escape, or leaving an empty note, closes it with no save.
+function StickyEditor({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: string;
+  onSave: (text: string) => Promise<boolean | 'again'>;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+
+  // A save from a blur closes a new note's editor. A save from Enter keeps
+  // it open for the next note.
+  async function save(fromBlur: boolean) {
+    const sent = text.trim();
+    if (!sent) return onCancel();
+    if (saving) return;
+    setSaving(true);
+    const result = await onSave(sent);
+    setSaving(false);
+    // On a failed save the text stays, so the person can try again.
+    if (result === 'again') {
+      if (fromBlur) return onCancel();
+      setText((cur) => (cur.trim() === sent ? '' : cur));
+      ref.current?.focus();
+    }
+  }
+
   return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const sent = text;
-        // On a failed save the question stays, so the person can try again.
-        // On success, keep any text the person typed while the save ran.
-        if (await onAdd(sent)) setText((cur) => (cur === sent ? '' : cur));
-      }}
-    >
-      <label>
-        Question <input required value={text} onChange={(e) => setText(e.target.value)} placeholder="How might we…?" />
-      </label>
-      <button type="submit">Add the note</button>
-    </form>
+    <div className="note sticky editing">
+      <textarea
+        ref={ref}
+        data-testid="note-input"
+        aria-label="Question"
+        placeholder="How might we…?"
+        maxLength={500}
+        value={text}
+        readOnly={saving}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            save(false);
+          }
+          if (e.key === 'Escape') onCancel();
+        }}
+        onBlur={() => {
+          if (!saving) save(true);
+        }}
+      />
+    </div>
   );
 }
