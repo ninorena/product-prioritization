@@ -16,37 +16,51 @@ table { border-collapse: collapse; width: 100%; margin: 12px 0; }
 th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
 .differ { color: #c0392b; }
 .tie { font-weight: 700; font-size: 1.2em; }
-.board-layout { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+:root { --board: min(900px, calc(100vw - 380px), calc(100vh - 90px)); }
+/* The tray sits left of the board, and both fit on one screen. */
+.board-layout { display: flex; gap: 24px; align-items: flex-start; scroll-margin-top: 8px; }
 .board-wrap { display: flex; gap: 8px; }
-/* Each label turns on its own. The column runs down the page, so "More
-   important" sits at the top and "Less important" at the bottom. */
-.axis-y { display: flex; flex-direction: column; justify-content: space-between; color: var(--muted); }
-.axis-y span { writing-mode: vertical-rl; transform: rotate(180deg); }
-.axis-x { display: flex; justify-content: space-between; color: var(--muted); }
-.board { position: relative; width: min(900px, calc(100vw - 80px), 72vh); aspect-ratio: 1; border: 2px solid var(--ink); background: var(--canvas); }
+/* Axes: an arrow line from one end label to the other. Each label turns on
+   its own, so "More important" sits at the top and "Less important" at the bottom. */
+.axis-y { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--muted); font-weight: 600; }
+.axis-y .axis-end { writing-mode: vertical-rl; transform: rotate(180deg); }
+.axis-y .axis-line { position: relative; flex: 1; width: 2px; background: var(--muted); }
+.axis-y .axis-line::before { content: ''; position: absolute; top: -2px; left: -5px; border: 6px solid transparent; border-bottom: 9px solid var(--muted); border-top: 0; }
+.axis-x { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: var(--muted); font-weight: 600; }
+.axis-x .axis-line { position: relative; flex: 1; height: 2px; background: var(--muted); }
+.axis-x .axis-line::after { content: ''; position: absolute; right: -2px; top: -5px; border: 6px solid transparent; border-left: 9px solid var(--muted); border-right: 0; }
+.board { position: relative; width: var(--board); aspect-ratio: 1; border: 2px solid var(--ink); background: var(--canvas); }
+@media (max-width: 760px) {
+  .board-layout { flex-wrap: wrap; }
+  :root { --board: calc(100vw - 80px); }
+}
 .board.editable { cursor: crosshair; }
 .line-v { position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed var(--line); }
 .line-h { position: absolute; top: 50%; left: 0; right: 0; border-top: 1px dashed var(--line); }
 .note { background: var(--note); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; text-align: left; }
-.note.placed { position: absolute; transform: translate(-50%, -50%); width: max-content; max-width: 150px; font-size: 12px; line-height: 1.3; padding: 4px 6px; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+/* A border in the note's own color pads it. A padding would show part of the
+   next line under the cut. */
+.note.placed { position: absolute; transform: translate(-50%, -50%); width: max-content; max-width: 150px; font-size: 12px; line-height: 1.3; padding: 0; border: solid var(--note); border-width: 4px 6px; box-shadow: 0 0 0 1px var(--line), 0 1px 3px rgba(0,0,0,.2);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 /* Hover or focus shows the full note on top of the others. */
 .note.placed:hover, .note.placed:focus-visible { -webkit-line-clamp: unset; max-width: 260px; z-index: 10; overflow: visible; }
 .note.selected { outline: 3px solid var(--accent); }
 .draggable { touch-action: none; cursor: grab; user-select: none; }
 .drag-ghost { position: fixed; z-index: 100; pointer-events: none; transform: translate(-50%, -50%) rotate(-2deg); max-width: 180px; padding: 6px 8px; font-size: 13px; box-shadow: 0 6px 16px rgba(0,0,0,.3); opacity: .9; }
-.tray { width: 260px; }
-.tray ul { list-style: none; padding: 0; }
+.tray { flex: 0 0 240px; max-height: var(--board); overflow-y: auto; padding-right: 4px; }
+.tray p { margin: 0 0 8px; }
+.tray .hint { color: var(--muted); font-size: 14px; }
+.tray .sr-hint { font-size: 12px; }
+.tray ul { list-style: none; padding: 0; margin: 0; }
 .tray li { margin: 8px 0; }
 .tray-note { width: 100%; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-.quadrant-picker { display: flex; flex-direction: column; gap: 8px; }
+.brainstorm-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.brainstorm-bar .purpose { flex: 1 1 100%; margin: 0; }
+.prompt-card { flex: 1 1 300px; margin: 0; padding: 8px 12px; border-left: 4px solid var(--accent); background: var(--canvas); font-style: italic; }
 
 /* Version 2 canvas: sticky notes on a light area, prompts beside it. */
 .canvas-layout { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
-.canvas { flex: 1 1 520px; min-height: 360px; padding: 16px; background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; }
-.side-panel { flex: 0 1 280px; }
-.side-panel ul { padding-left: 18px; }
-.side-panel li { margin: 6px 0; }
+.canvas { flex: 1 1 100%; min-height: 360px; padding: 16px; background: var(--canvas); border: 1px solid var(--line); border-radius: 8px; }
 .note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; align-items: start; }
 .sticky { position: relative; min-height: 120px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
 .sticky-text { all: unset; display: block; width: 100%; min-height: 100px; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
@@ -61,7 +75,11 @@ th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vert
 .small-board-name { display: block; font-weight: 600; margin-bottom: 4px; }
 .board-wrap.small .board { width: 260px; }
 .board-wrap.small .axis-y, .board-wrap.small .axis-x { font-size: 10px; }
-.board-wrap.small .note.placed { font-size: 9px; max-width: 70px; padding: 1px 3px; -webkit-line-clamp: 2; }
+.board-wrap.small .note.placed { font-size: 9px; max-width: 70px; border-width: 1px 3px; -webkit-line-clamp: 2; }
+/* On hover the whole note grows, background and all, so the text stays readable. */
+.board-wrap.small .note.placed:hover { -webkit-line-clamp: unset; max-width: 160px; font-size: 12px; z-index: 10; }
+.board-wrap.small .axis-y .axis-line::before { left: -4px; border-width: 5px; border-bottom-width: 7px; }
+.board-wrap.small .axis-x .axis-line::after { top: -4px; border-width: 5px; border-left-width: 7px; }
 .vote-note p { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dots { display: flex; gap: 4px; min-height: 16px; margin-bottom: 8px; }
 .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }

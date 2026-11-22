@@ -12,6 +12,9 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
   const [adding, setAdding] = useState(false);
   // The saved note that is open for edits.
   const [editing, setEditing] = useState<string | null>(null);
+  // One prompt at a time, only when the person asks for one.
+  const [promptIndex, setPromptIndex] = useState<number | null>(null);
+  const nextPrompt = () => setPromptIndex((i) => (i === null ? Math.floor(Math.random() * PROMPTS.length) : (i + 1) % PROMPTS.length));
 
   // Each load and each change takes a number. A load applies its result
   // only if nothing started after it, so a slow load cannot undo a change.
@@ -75,7 +78,13 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
   return (
     <section data-testid="brainstorm">
       <h2>Brainstorm</h2>
-      <p>Write one question on each note. Only you can see your notes until the lead closes the brainstorm.</p>
+      <div className="brainstorm-bar" data-testid="prompts">
+        <p className="purpose">
+          Write the risks and assumptions you have about the product, one question on each note. Only you can see your notes until the lead closes the brainstorm.
+        </p>
+        <button onClick={nextPrompt}>{promptIndex === null ? 'Give me a prompt' : 'Another prompt'}</button>
+        {promptIndex !== null && <p className="prompt-card" data-testid="prompt">{PROMPTS[promptIndex]}</p>}
+      </div>
       <div className="canvas-layout">
         <div className="canvas" data-testid="canvas">
           {!loaded && <p>Loading…</p>}
@@ -123,14 +132,6 @@ export function Brainstorm({ workspaceId, round, me }: { workspaceId: string; ro
             </div>
           )}
         </div>
-        <aside className="side-panel" data-testid="prompts">
-          <h3>Prompts</h3>
-          <ul>
-            {PROMPTS.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-        </aside>
       </div>
       {error && <p className="error">{error}</p>}
     </section>

@@ -5,14 +5,8 @@ import { offLine, quadrant } from './quadrant';
 
 const VOTES = 3;
 
-// The 4 places a keyboard user can put a selected note. x: Harder 0 to Easier 1.
-// y: Less important 0 to More important 1.
-const QUADRANTS = [
-  { label: 'More important, Harder', x: 0.25, y: 0.75 },
-  { label: 'More important, Easier', x: 0.75, y: 0.75 },
-  { label: 'Less important, Harder', x: 0.25, y: 0.25 },
-  { label: 'Less important, Easier', x: 0.75, y: 0.25 },
-];
+// One arrow key press moves a note this far. The board is 1 wide and 1 high.
+const STEP = 0.05;
 
 export function BoardStep({ round, me, members }: { round: Round; me: string; members: Member[] }) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -25,7 +19,10 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
   const [error, setError] = useState('');
   const [voting, setVoting] = useState(false);
   const [ghost, setGhost] = useState<{ id: string; x: number; y: number } | null>(null);
+  // The note that gets keyboard focus after a keyboard user puts it on the board.
+  const [focusId, setFocusId] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
 
   // Each load and each change takes a number. A load applies its result
   // only if nothing started after it, so a slow load cannot undo a change.
@@ -49,6 +46,11 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
   useEffect(() => {
     load();
   }, [load]);
+
+  // In placement, show the tray and the full board on one screen.
+  useEffect(() => {
+    if (loaded && round.step === 'placement') layoutRef.current?.scrollIntoView({ block: 'start' });
+  }, [loaded, round.step]);
 
   // Escape goes back from one full-size board to all the boards.
   useEffect(() => {
@@ -120,6 +122,19 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
     window.addEventListener('pointercancel', stop);
   }
 
+  // Keyboard: the arrow keys move a note that has focus on the board.
+  function moveByKey(e: React.KeyboardEvent, id: string) {
+    const d: Record<string, [number, number]> = {
+      ArrowLeft: [-STEP, 0], ArrowRight: [STEP, 0], ArrowUp: [0, STEP], ArrowDown: [0, -STEP],
+    };
+    const delta = d[e.key];
+    const p = mine.find((x) => x.note_id === id);
+    if (!delta || !p) return;
+    e.preventDefault();
+    const clamp = (v: number) => Math.min(0.99, Math.max(0.01, v));
+    place(id, clamp(p.x + delta[0]), clamp(p.y + delta[1]));
+  }
+
   async function changeDot(noteId: string, add: boolean) {
     gen.current++;
     if (voting) return;
@@ -164,20 +179,12 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
               <button onClick={() => setOpen(null)}>Back to all boards</button>
             </div>
           )}
-          <div className="board-layout">
-            <Board
-              notes={notes}
-              placements={open === me ? mine : placements.filter((p) => p.member_id === open)}
-              selected={editing ? selected : null}
-              onSelect={editing ? setSelected : undefined}
-              onPlace={editing ? (x, y) => selected && place(selected, x, y) : undefined}
-              onStartDrag={editing ? startDrag : undefined}
-              boardRef={boardRef}
-            />
+          <div className="board-layout" ref={layoutRef}>
             {editing && (
-              <div className="tray side-panel" data-testid="tray">
+              <div className="tray" data-testid="tray">
                 <p data-testid="placed-count">Placed {mine.length} of {notes.length}</p>
-                {unplaced.length > 0 && <p>Drag a note onto the board. Or select it, then click the board.</p>}
+                {unplaced.length > 0 && <p className="hint">Drag a note onto the board, or click a note and then click the board.</p>}
+                <p className="hint sr-hint">With a keyboard: press Enter on a note, then move it with the arrow keys.</p>
                 <ul>
                   {unplaced.map((n) => (
                     <li key={n.id}>
@@ -185,25 +192,33 @@ export function BoardStep({ round, me, members }: { round: Round; me: string; me
                         className={`note tray-note draggable ${selected === n.id ? 'selected' : ''}`}
                         data-testid="tray-note"
                         onPointerDown={(e) => startDrag(e, n.id)}
-                        onClick={() => setSelected(n.id)}
+                        onClick={(e) => {
+                          // A key press (detail 0) puts the note in the middle
+                          // of the board. A mouse click selects it.
+                          if (e.detail === 0) {
+                            place(n.id, 0.5, 0.5);
+                            setFocusId(n.id);
+                          } else setSelected(n.id);
+                        }}
                       >
                         {n.body}
                       </button>
                     </li>
                   ))}
                 </ul>
-                {selected && (
-                  <div className="quadrant-picker" data-testid="quadrant-picker">
-                    <p>Click the board to place the selected note, or put it in:</p>
-                    {QUADRANTS.map((q) => (
-                      <button key={q.label} onClick={() => place(selected, q.x + (Math.random() - 0.5) * 0.2, q.y + (Math.random() - 0.5) * 0.2)}>
-                        {q.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
+            <Board
+              notes={notes}
+              placements={open === me ? mine : placements.filter((p) => p.member_id === open)}
+              selected={editing ? selected : null}
+              onSelect={editing ? setSelected : undefined}
+              onPlace={editing ? (x, y) => selected && place(selected, x, y) : undefined}
+              onStartDrag={editing ? startDrag : undefined}
+              onKeyMove={editing ? moveByKey : undefined}
+              focusId={focusId}
+              boardRef={boardRef}
+            />
           </div>
         </>
       )}
@@ -303,6 +318,8 @@ export function Board({
   onSelect,
   onPlace,
   onStartDrag,
+  onKeyMove,
+  focusId,
   boardRef,
   small = false,
 }: {
@@ -312,16 +329,31 @@ export function Board({
   onSelect?: (id: string) => void;
   onPlace?: (x: number, y: number) => void;
   onStartDrag?: (e: React.PointerEvent, id: string) => void;
+  onKeyMove?: (e: React.KeyboardEvent, id: string) => void;
+  focusId?: string | null;
   boardRef?: React.RefObject<HTMLDivElement | null>;
   small?: boolean;
 }) {
   const byId = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes]);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const placedFocus = focusId && placements.some((p) => p.note_id === focusId) ? focusId : null;
+  useEffect(() => {
+    if (!placedFocus) return;
+    innerRef.current?.querySelector<HTMLElement>(`[data-note-id="${placedFocus}"]`)?.focus();
+  }, [placedFocus]);
   return (
     <div className={`board-wrap ${small ? 'small' : ''}`}>
-      <div className="axis-y"><span>More important</span><span>Less important</span></div>
+      <div className="axis-y" aria-hidden="true">
+        <span className="axis-end">More important</span>
+        <span className="axis-line" />
+        <span className="axis-end">Less important</span>
+      </div>
       <div className="board-col">
         <div
-          ref={boardRef}
+          ref={(el) => {
+            innerRef.current = el;
+            if (boardRef) boardRef.current = el;
+          }}
           className={`board ${onPlace ? 'editable' : ''}`}
           data-testid={small ? 'board-small' : 'board'}
           onClick={(e) => {
@@ -342,9 +374,12 @@ export function Board({
                 className={`note placed ${onStartDrag ? 'draggable' : ''} ${selected === p.note_id ? 'selected' : ''}`}
                 data-testid="placed-note"
                 data-quadrant={quadrant(p)}
+                data-note-id={p.note_id}
                 style={{ left: `${p.x * 100}%`, top: `${(1 - p.y) * 100}%` }}
                 title={small ? n.body : undefined}
                 onPointerDown={onStartDrag ? (e: React.PointerEvent) => onStartDrag(e, p.note_id) : undefined}
+                onKeyDown={onKeyMove ? (e: React.KeyboardEvent) => onKeyMove(e, p.note_id) : undefined}
+                aria-label={onKeyMove ? `${n.body}. ${quadrant(p)}. Move with the arrow keys.` : undefined}
                 onClick={
                   small
                     ? undefined
@@ -359,7 +394,11 @@ export function Board({
             );
           })}
         </div>
-        <div className="axis-x"><span>Harder</span><span>Easier</span></div>
+        <div className="axis-x" aria-hidden="true">
+          <span className="axis-end">Harder</span>
+          <span className="axis-line" />
+          <span className="axis-end">Easier</span>
+        </div>
       </div>
     </div>
   );
